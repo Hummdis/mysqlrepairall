@@ -6,10 +6,16 @@ Why such a large script?
 
 This script takes into consideration many different things that could happen.  Since the intent of this script is to be run in a screen, it provides minimal output to the TTY, but logs all other activity in /var/log/mysql_db_repair.log.    The goal is to be as hands-off as possible to ensure that the process can just run.  Therefore, arguments can be passed to it to make it customizable to a particular need.
 
+How do I run it?
+
+The easiest and fastest way is this:
+
+    wget -a /var/log/mysql_db_repair.log -O ./mysqlrepairall https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall && chmod +x ./mysqlrepairall && ./mysqlrepairall
+
 You may also specify options to skip certain tasks:
 
     Usage: mysqlrepairall [ OPTIONS ]
-    
+ 
     [ OPTIONS ]
     	-b	,	--skip-backup
             Skip running the backup process. Use only if you've performed a manual export of the database(s) yourself.
