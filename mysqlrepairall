@@ -3,19 +3,19 @@
 # This tool is designed to be run in a screen. All detailed output is logged in
 # /var/log/mysql_db_repair.log
 
-# Created by Jeff Shepherd (JeffSh).
+# Created by Hummdis (https://hummdis.com).
 # This work is licensed under the Creative Commons Attribution-ShareAlike
 # 4.0 International License. To view a copy of this license,
 # visit http://creativecommons.org/licenses/by-sa/4.0/.
 
-### DO NOT CHANGE THE FORMAT OF THE "VERSION" LINE. YOU'LL BREAK UPDATE CHECKS.
-#Version: 2.0.1
-# Latest version available at: https://hummdis.com/imh/scripts/
+# Version: 2.0.2
+# Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
-# This script performs a MySQL dump of all databases to a single .sql file.
-# Once done, it then performs a MySQL check using mysqlcheck for InnoDB and
-# myisamchk for MyISAM to repair and optimize the databases.
+# This script performs a MySQL dump of all databases to a single folder.
+# Once done, it then performs a MySQL check using mysqlcheck for live repairs and
+# myisamchk for offline (MySQL turned off) to repair and optimize the databases
+# that fail the live repair/update.
 
 # Make sure we're running as Root.
 if [ "$EUID" -ne 0 ]
@@ -178,25 +178,23 @@ check_offline() {
 	fi
 }
 
-report_complete() {
-	# Report completion.
-	echo "CHECKS AND REPAIR COMPLETE.  Current time: $(date +%c)" | tee /dev/fd/3
-	echo -e "\nThe full log can be viewed at: $LOG\n" | tee /dev/fd/3
-}
-
 run_job() {
 	# We're going to make sure everything is logged.
 	# To print statements to the user, which will also go to STDOUT and STDERR,
 	# pipe output to "tee /dev/fd/3". Otherwise, it only goes the log.
 	exec 3>&1 1>>${LOG} 2>&1
 
-	echo -e "\n\n\nRUNNING NEW MySQL REPAIR PROCESS\n\n\n" | tee /dev/fd/3
-	echo "Start time: $(date +%c)" | tee /dev/fd/3
-	update_check
+	echo -e "\n\nRUNNING NEW MySQL REPAIR PROCESS\n\n" | tee /dev/fd/3
+	echo -e "\e[1mBoldStart time: $(date +%c)\e[21mNormal" | tee /dev/fd/3
+	
 	run_backup
 	check_live
 	check_offline
-	report_complete
+	
+	# Report completion.
+	echo "CHECKS AND REPAIR COMPLETE." | tee /dev/fd/3
+	echo -e "\e[1mBoldFinish time: $(date +%c)\e[21mNormal" | tee /dev/fd/3
+	echo -e "\nThe full log can be viewed at: $LOG\n" | tee /dev/fd/3
 }
 
 usage(){
