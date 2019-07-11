@@ -1,0 +1,20 @@
+v2.0.0
+This more of a structure change than a process change.  Reorganized the file into functions and then 
+
+v1.0.6
+-Fixed the read lines loop for the update file check.
+-Added a few sleep statements to better follow along when viewing from the terminal.
+-Added a beginswith() function since BASH doesn't have one.
+-Updates the MySQL/MariaDB backup process to ensure we get a good backup.
+
+v1.0.5
+-Added the self-update check to the file to make sure we're always running the latest version.
+
+v1.0.4
+-Added MySQL Control function to start and stop MySQL without duplicating code.
+-Reduced code for MySQL stop countdown.
+-Fixed some echo statements to make logs and stdout output more readable.
+-Fixed failure to restart MySQL process because the 'service mysql' checks failed. Now checks for to see if the msqlcmd variable is already set.
+
+v1.0.3
+The initial check-in and creation of the repository.  This is the initial code that did the original work to backup and repair the MySQL databases.
