@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+
+# This tool is designed to be run in a screen. All detailed output is logged in
+# /var/log/mysql_db_repair.log
+
+# Created by Jeff Shepherd (JeffSh).
+# This work is licensed under the Creative Commons Attribution-ShareAlike
+# 4.0 International License. To view a copy of this license,
+# visit http://creativecommons.org/licenses/by-sa/4.0/.
+
+### DO NOT CHANGE THE FORMAT OF THE "VERSION" LINE. YOU'LL BREAK UPDATE CHECKS.
+#Version: 2.0.1
+# Latest version available at: https://hummdis.com/imh/scripts/
+
+# Purpose:
+# This script performs a MySQL dump of all databases to a single .sql file.
+# Once done, it then performs a MySQL check using mysqlcheck for InnoDB and
+# myisamchk for MyISAM to repair and optimize the databases.
+
+# Make sure we're running as Root.
+if [ "$EUID" -ne 0 ]
+    then echo "Please run as root"
+    exit 1
+fi
+
+### VARIABLES ###
+OPT=""
+LOG='/var/log/mysql_db_repair.log'
+TIMESTAMP=$(date +%Y-%m-%d_%H%M)
+
+# Enable everything by default
+SKIP_BACKUP='false'
+SKIP_LIVE='false'
+SKIP_OFFLINE='false'
+SKIP_OPTIMIZE='false'
+
+### FUNCTIONS ###
+
+mysql_ctrl() {
+	# Test which MySQL command works. Some use 'mysql', others use 'mysqld'.
+	if [ -z ${mysqlcmd+x} ]; then
+		echo "MySQL Control -- Status Test for 'mysqld' command."
+		service mysqld status
+		if [ $? -ne 0 ]; then
+			# That didn't work. Try again.
+			echo "MySQL Contol -- Status Test for 'mysql' command."
+			service mysql status
+			
+			if [ $? -ne 0 ]; then
+				# Neither command works. Is MySQL installed?
+				echo "Unable to safely stop MySQL server." | tee /dev/fd/3
+				echo "Command 'service mysql status' failed." | tee /dev/fd/3
+				echo "Command 'service mysqld status' failed." | tee /dev/fd/3
+				echo -e "\nIs MySQL installed?\n" | tee /dev/fd/3
+				echo "ABORTING." | tee /dev/fd/3
+				exit 1
+			fi		
+			mysqlcmd='mysql'
+		else
+			mysqlcmd='mysqld'
+		fi
+	fi	
+	service $mysqlcmd $1
+}
+
+stop_mysql() {
+	secs=$((30))
+	while [ $secs -gt 0 ]; do
+	   echo -ne "MySQL Server stopping in $secs...\033[0K\r" | tee /dev/fd/3
+	   sleep 1
+	   : $((secs--))
+	done
+	
+	# We're going to tell chkservd to not monitor the MySQL process as well so it's
+	# not restarted during the repair process.
+	echo "Removing MySQL from chkservd monitoring..." | tee /dev/fd/3
+	sed -i 's/mysql:1/mysql:0/g' /etc/chkserv.d/chkservd.conf
+	/scripts/restartsrv chkservd
+
+	echo "Stopping MySQL Server. Current time: $(date +%c)" | tee /dev/fd/3
+	mysql_ctrl "stop"
+}
+
+start_mysql() {
+	echo "Restarting MySQL Server..." | tee /dev/fd/3
+	mysql_ctrl "start"
+
+	# Enable Chkservd's monitoring again.
+	echo "Addeding MySQL monitoring to Chkservd..." | tee /dev/fd/3
+	sed -i 's/mysql:0/mysql:1/g' /etc/chkserv.d/chkservd.conf
+	/scripts/restartsrv chkservd
+}
+
+run_backup() {
+	if [[ $SKIP_BACKUP = 'true' ]]; then
+		echo "Skipping backup process." | tee /dev/fd/3
+	else
+		# Backup all databases to a single .sql file.
+		echo "Backing up all databases..." | tee /dev/fd/3
+
+		# Make sure the backup directory exists, if not, create it.
+		# Abort if it's not a directory.
+		if [[ ! -e $BU_DIR ]]; then
+			mkdir $BU_DIR
+		elif [[ ! -d $BU_DIR ]]; then
+			echo -e "\e[31mRed$BU_DIR already exists but is not a directory.\e[39mDefault" | tee /dev/fd/3
+			echo "ABORTING." | tee /dev/fd/3
+			exit 1
+		fi
+
+		# After commmunication with Zeb W., it would be best to not dump the SQL to a single file
+		# but to rather dump each database separately.  This would be perferred by DB Admins.
+		mkdir -p /root/dbbackups/$TIMESTAMP
+		LIST="/root/dbbackups/${TIMESTAMP}/01_LIST"
+		echo -e "\tBacking up each database individually to /root/dbbackups/${TIMESTAMP}/" | tee /dev/fd/3
+		echo -e "\tDB Backup list located at ${LIST}"
+		touch $LIST
+		for DB in $( mysql -e 'show databases' | grep -v "Database\|information_schema" | awk '{print $1}' )
+		do
+			mysqldump --add-drop-table $DB > /root/dbbackups/$TIMESTAMP/$DB.sql && echo $DB >> $LIST
+		done
+		echo "Individual database backup process complete." | tee /dev/fd/3
+	fi
+}
+
+check_live() {
+	if [[ $SKIP_LIVE = 'true' ]]; then
+		echo "Skipping Live MySQL repair process." | tee /dev/fd/3
+	else
+		# Perform MySQL check. This is a simple check on the databases and can be run with
+		# MySQL running.
+		echo "Performing Live MySQL check for databases..." | tee /dev/fd/3
+		mysqlcheck --repair --extended --all-databases
+
+		# This seems to hang on some systems. Allow this to be skipped.
+		if [[ $SKIP_OPTIMIZE = 'true' ]]; then
+			echo -e "\tSkipping Live MySQL optimization process." | tee /dev/fd/3
+		else
+			echo -e "\tOptimizing all databases..." | tee /dev/fd/3
+			mysqlcheck --optimize --all-databases
+		fi
+	fi
+}
+
+check_offline() {
+	if [[ $SKIP_OFFLINE = 'true' ]]; then
+		echo "Skipping Offline MySQL repair process." | tee /dev/fd/3
+	else
+		# Perform a MyISAM check on the tables and repair any issues found.
+		# The mysqld server must be stopped.  This is to prevent database
+		# corruption and because MyISAM is the only one allowed to work with a
+		# table that needs to be repaired.
+
+		stop_mysql
+
+		echo "Starting offline check of MyISAM databases..." | tee /dev/fd/3
+
+		# Perform a MyISAM check for all MyISAM databases.  This will also optimize the
+		# database by default.
+		echo -e "\tPerforming check & repair for all MyISAM databases (step 1/2)..." | tee /dev/fd/3
+		for i in $(find /var/lib/mysql/ -name '*.MYI')
+		do
+			myisamchk --backup --extend-check --recover --wait --force --sort-index $i 
+		done
+
+		# This does the same thing as the above does, but addresses the
+		# "myisamchk: error: 140 when opening MyISAM-table" errors by trimming the
+		# suffix.
+		echo -e "\tPerforming check & repair for all MyISAM databses (step 2/2)..." | tee /dev/fd/3
+		for i in $(find /var/lib/mysql/ -name '*.MYI' | sed 's/.\{4\}$//')
+		do
+			myisamchk --backup --extend-check --recover --wait --force --sort-index $i
+		done
+
+		echo "All MyISAM offline checks complete." | tee /dev/fd/3
+		
+		start_mysql
+	fi
+}
+
+report_complete() {
+	# Report completion.
+	echo "CHECKS AND REPAIR COMPLETE.  Current time: $(date +%c)" | tee /dev/fd/3
+	echo -e "\nThe full log can be viewed at: $LOG\n" | tee /dev/fd/3
+}
+
+run_job() {
+	# We're going to make sure everything is logged.
+	# To print statements to the user, which will also go to STDOUT and STDERR,
+	# pipe output to "tee /dev/fd/3". Otherwise, it only goes the log.
+	exec 3>&1 1>>${LOG} 2>&1
+
+	echo -e "\n\n\nRUNNING NEW MySQL REPAIR PROCESS\n\n\n" | tee /dev/fd/3
+	echo "Start time: $(date +%c)" | tee /dev/fd/3
+	update_check
+	run_backup
+	check_live
+	check_offline
+	report_complete
+}
+
+usage(){
+	echo "
+Usage: mysqlrepairall [ OPTIONS ]
+
+[ OPTIONS ]
+	-b	,	--skip-backup
+		Skip running the backup process. Use only if you've performed a manual export of the database(s) yourself.
+
+	-l	,	--skip-live
+		Skip running the InnoDB repair process.
+
+	-o	,	--skip-offline	
+		Skip running the MyISAM repair process.
+	
+	-O	,	--skip-optimize
+		Skip the InnoDB optimization process.  Useful if it seems to hang up some systems.
+
+	-h	,	--help
+		Display this help text.
+"
+}
+
+while (( "$#" )); do
+	case "$1" in
+		-b | --skip-backup) # Skip Backup process.
+			SKIP_BACKUP='true'
+			shift
+			;;
+		-l | --skip-live) # Skip live repair.
+			SKIP_LIVE='true'
+			shift
+			;;
+		-o | --skip-offline) # Skip offline repair.
+			SKIP_OFFLINE='true'
+			shift
+			;;
+		-O | --skip-optimize) # Skip DB optimize process.
+			SKIP_OPTIMIZE='true'
+			shift
+			;;
+		-h | --help) # Print help/usage text.
+			usage
+			exit 0
+			;;
+		--) # End argument parsing
+			shift
+			break
+			;;
+		*) # Unknown argument passed.
+			echo "Unknown argument $1." >&2
+			echo "Run -h or --help for usage and options."
+			exit 2
+			;;
+	esac
+done
+
+# All args processed. Run the task.
+run_job
+
+exit 0
