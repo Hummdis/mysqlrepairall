@@ -185,7 +185,7 @@ run_job() {
 	exec 3>&1 1>>${LOG} 2>&1
 
 	echo -e "\n\nRUNNING NEW MySQL REPAIR PROCESS\n\n" | tee /dev/fd/3
-	echo -e "\e[1mBoldStart time: $(date +%c)\e[21mNormal" | tee /dev/fd/3
+	echo -e "\e[1mBoldStart time: $(date +%c)\e[0m" | tee /dev/fd/3
 	
 	run_backup
 	check_live
@@ -193,7 +193,7 @@ run_job() {
 	
 	# Report completion.
 	echo "CHECKS AND REPAIR COMPLETE." | tee /dev/fd/3
-	echo -e "\e[1mBoldFinish time: $(date +%c)\e[21mNormal" | tee /dev/fd/3
+	echo -e "\e[1mBoldFinish time: $(date +%c)\e[0m" | tee /dev/fd/3
 	echo -e "\nThe full log can be viewed at: $LOG\n" | tee /dev/fd/3
 }
 
