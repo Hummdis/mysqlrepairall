@@ -15,22 +15,22 @@ The easiest and fastest way is this:
 You may also specify options to skip certain tasks:
 
     Usage: mysqlrepairall [ OPTIONS ]
- 
-    [ OPTIONS ]
-    	-b	,	--skip-backup
-            Skip running the backup process. Use only if you've performed a manual export of the database(s) yourself.
-    
-    	-i	,	--skip-live
-            Skip running the InnoDB repair process.
-    
-    	-m	,	--skip-offline	
-            Skip running the MyISAM repair process.
-    	
-    	-o	,	--skip-optimize
-            Skip the InnoDB optimization process.  Useful if it seems to hang up some systems.
 
-    	-h	,	--help
-            Display this help text.
+    [ OPTIONS ]
+	-b	,	--skip-backup
+		Skip running the backup process. Use only if you've performed a manual export of the database(s) yourself.
+
+	-l	,	--skip-live
+		Skip running the live repair process.
+
+	-o	,	--skip-offline	
+		Skip running the offline repair process.
+	
+	-O	,	--skip-optimize
+		Skip the InnoDB optimization process.  Useful if it seems to hang up some systems.
+
+	-h	,	--help
+		Display this help text.
 
 
 This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/4.0/.
