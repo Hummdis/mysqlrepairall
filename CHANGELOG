@@ -1,3 +1,17 @@
+v2.0.4
+-Corrected the ability for mysql_ctrl to be able to actually start/stop the MySQL process.
+
+v2.0.3
+-Fixed the output of the start and finish times to be bold, but corrected them to reset after the text is output.
+
+v2.0.2
+-Updated Purpose statement.
+-Removed the 'report_complete' function.
+-Changed the display output for the start/stop times.
+
+v2.0.1
+This is the first public release of mysqlrepairall.
+
 v2.0.0
 This more of a structure change than a process change.  Reorganized the file into functions and then 
 
