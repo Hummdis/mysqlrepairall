@@ -8,7 +8,7 @@
 # 4.0 International License. To view a copy of this license,
 # visit http://creativecommons.org/licenses/by-sa/4.0/.
 
-# Version: 2.0.3
+# Version: 2.0.4
 # Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
@@ -39,17 +39,17 @@ SKIP_OPTIMIZE='false'
 
 mysql_ctrl() {
 	# Test which MySQL command works. Some use 'mysql', others use 'mysqld'.
-	if [ -z ${mysqlcmd+x} ]; then
-		echo "MySQL Control -- Status Test for 'mysqld' command."
+	if [ -z ${MYSQLCMD} ]; then
+		echo -e "\tMySQL Control -- Status Test for 'mysqld' command." | tee /dev/fd/3
 		service mysqld status
 		if [ $? -ne 0 ]; then
 			# That didn't work. Try again.
-			echo "MySQL Contol -- Status Test for 'mysql' command."
+			echo -e "\tMySQL Contol -- Status Test for 'mysql' command." | tee /dev/fd/3
 			service mysql status
 			
 			if [ $? -ne 0 ]; then
 				# Neither command works. Is MySQL installed?
-				echo "Unable to safely stop MySQL server." | tee /dev/fd/3
+				echo "Unable to safely stop/start MySQL server." | tee /dev/fd/3
 				echo "Command 'service mysql status' failed." | tee /dev/fd/3
 				echo "Command 'service mysqld status' failed." | tee /dev/fd/3
 				echo -e "\nIs MySQL installed?\n" | tee /dev/fd/3
@@ -60,7 +60,8 @@ mysql_ctrl() {
 		else
 			MYSQLCMD='mysqld'
 		fi
-	fi	
+	fi
+	echo -e "\tMySQL Command is '${MYSQLCMD}'. Processing..."
 	service $MYSQLCMD $1
 }
 
@@ -87,7 +88,7 @@ start_mysql() {
 	mysql_ctrl "start"
 
 	# Enable Chkservd's monitoring again.
-	echo "Addeding MySQL monitoring to Chkservd..." | tee /dev/fd/3
+	echo "Adding MySQL monitoring back to Chkservd..." | tee /dev/fd/3
 	sed -i 's/mysql:0/mysql:1/g' /etc/chkserv.d/chkservd.conf
 	/scripts/restartsrv chkservd
 }
