@@ -131,14 +131,15 @@ check_live() {
 	else
 		# Perform MySQL check. This is a simple check on the databases and can be run with
 		# MySQL running.
-		echo "Performing live MySQL check for databases..." | tee /dev/fd/3
+		echo "Performing live check for all databases..." | tee /dev/fd/3
+		echo "\tPerforming live database repair..." | tee /dev/fd/3
 		mysqlcheck --repair --extended --all-databases
 
 		# This seems to hang on some systems. Allow this to be skipped.
 		if [[ $SKIP_OPTIMIZE = 'true' ]]; then
 			echo -e "\tSkipping live MySQL optimization process." | tee /dev/fd/3
 		else
-			echo -e "\tOptimizing all databases..." | tee /dev/fd/3
+			echo -e "\tPerforming live optimization of all databases..." | tee /dev/fd/3
 			mysqlcheck --optimize --all-databases
 		fi
 	fi
@@ -155,7 +156,7 @@ check_offline() {
 
 		stop_mysql
 
-		echo "Starting offline check of MyISAM databases..." | tee /dev/fd/3
+		echo "\nStarting offline check of databases..." | tee /dev/fd/3
 
 		# Perform a MyISAM check for all MyISAM databases.  This will also optimize the
 		# database by default.
@@ -174,7 +175,7 @@ check_offline() {
 			myisamchk --backup --extend-check --recover --wait --force --sort-index $i
 		done
 
-		echo "All MyISAM offline checks complete." | tee /dev/fd/3
+		echo "All offline checks complete." | tee /dev/fd/3
 		
 		start_mysql
 	fi
@@ -194,7 +195,7 @@ run_job() {
 	check_offline
 	
 	# Report completion.
-	echo "CHECKS AND REPAIR COMPLETE." | tee /dev/fd/3
+	echo "\nCHECKS AND REPAIR COMPLETE." | tee /dev/fd/3
 	echo -e "\e[1mFinish time: $(date +%c)\e[0m" | tee /dev/fd/3
 	echo -e "\nThe full log can be viewed at: $LOG\n" | tee /dev/fd/3
 }
