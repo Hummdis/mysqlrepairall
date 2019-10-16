@@ -8,7 +8,7 @@
 # 4.0 International License. To view a copy of this license,
 # visit http://creativecommons.org/licenses/by-sa/4.0/.
 
-# Version: 2.0.6
+VERSION=2.0.7
 # Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
@@ -52,6 +52,9 @@ mysql_ctrl() {
 				echo "Unable to safely stop/start MySQL server." | tee /dev/fd/3
 				echo "Command 'service mysql status' failed." | tee /dev/fd/3
 				echo "Command 'service mysqld status' failed." | tee /dev/fd/3
+				echo "Adding MySQL monitoring back to Chkservd..." | tee /dev/fd/3
+				sed -i 's/mysql:0/mysql:1/g' /etc/chkserv.d/chkservd.conf
+				/scripts/restartsrv chkservd
 				echo -e "\nIs MySQL installed?\n" | tee /dev/fd/3
 				echo "ABORTING." | tee /dev/fd/3
 				exit 1
@@ -132,7 +135,7 @@ check_live() {
 		# Perform MySQL check. This is a simple check on the databases and can be run with
 		# MySQL running.
 		echo "Performing live check for all databases..." | tee /dev/fd/3
-		echo "\tPerforming live database repair..." | tee /dev/fd/3
+		echo -e "\tPerforming live database repair..." | tee /dev/fd/3
 		mysqlcheck --repair --extended --all-databases
 
 		# This seems to hang on some systems. Allow this to be skipped.
@@ -189,6 +192,8 @@ run_job() {
 
 	echo -e "\n\nRUNNING NEW MySQL REPAIR PROCESS\n\n" | tee /dev/fd/3
 	echo -e "\e[1mStart time: $(date +%c)\e[0m" | tee /dev/fd/3
+	
+	echo -e "MySQL Repair All v${VERSION}\n" | tee /dev/fd/3
 	
 	run_backup
 	check_live
