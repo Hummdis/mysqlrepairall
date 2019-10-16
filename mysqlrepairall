@@ -8,7 +8,7 @@
 # 4.0 International License. To view a copy of this license,
 # visit http://creativecommons.org/licenses/by-sa/4.0/.
 
-VERSION=2.0.7
+VERSION=2.0.8
 # Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
@@ -159,7 +159,7 @@ check_offline() {
 
 		stop_mysql
 
-		echo "\nStarting offline check of databases..." | tee /dev/fd/3
+		echo -e "\nStarting offline check of databases..." | tee /dev/fd/3
 
 		# Perform a MyISAM check for all MyISAM databases.  This will also optimize the
 		# database by default.
@@ -190,10 +190,10 @@ run_job() {
 	# pipe output to "tee /dev/fd/3". Otherwise, it only goes the log.
 	exec 3>&1 1>>${LOG} 2>&1
 
-	echo -e "\n\nRUNNING NEW MySQL REPAIR PROCESS\n\n" | tee /dev/fd/3
+	echo -e "\n\nMySQL Repair All v${VERSION}\n\n" | tee /dev/fd/3
+
+	echo -e "RUNNING NEW MySQL REPAIR PROCESS\n\n" | tee /dev/fd/3
 	echo -e "\e[1mStart time: $(date +%c)\e[0m" | tee /dev/fd/3
-	
-	echo -e "MySQL Repair All v${VERSION}\n" | tee /dev/fd/3
 	
 	run_backup
 	check_live
