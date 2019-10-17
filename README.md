@@ -1,12 +1,16 @@
-What's the point?
+# MySQL Repair All
+
+### Version 2.0.8
+
+## What's the point?
 
 The point of this script is to allow a consistent and safe way for MySQL databses to be backed up and repaired on servers running either MySQL or MariaDB.  While there are many different ways to do this, the main goal is consistency in the process.
 
-Why such a large script?
+## Why such a large script?
 
-This script takes into consideration many different things that could happen.  Since the intent of this script is to be run in a screen, it provides minimal output to the TTY, but logs all other activity in /var/log/mysql_db_repair.log.    The goal is to be as hands-off as possible to ensure that the process can just run.  Therefore, arguments can be passed to it to make it customizable to a particular need.
+This script takes into consideration many different things that could happen.  Since the intent of this script is to be run in a screen, it provides minimal output to the TTY, but logs all other activity in `/var/log/mysql_db_repair.log`.    The goal is to be as hands-off as possible to ensure that the process can just run.  Therefore, arguments can be passed to it to make it customizable to a particular need.
 
-How do I run it?
+## How do I run it?
 
 The easiest and fastest way is this:
 
@@ -14,7 +18,7 @@ The easiest and fastest way is this:
 
 You may also specify options to skip certain tasks:
 
-    Usage: mysqlrepairall [ OPTIONS ]
+```Usage: mysqlrepairall [ OPTIONS ]
 
     [ OPTIONS ]
 	-b	,	--skip-backup
@@ -31,6 +35,6 @@ You may also specify options to skip certain tasks:
 
 	-h	,	--help
 		Display this help text.
-
+```
 
 This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/4.0/.
