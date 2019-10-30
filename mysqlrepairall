@@ -8,7 +8,21 @@
 # 4.0 International License. To view a copy of this license,
 # visit http://creativecommons.org/licenses/by-sa/4.0/.
 
-VERSION=2.0.9
+## RUNNING AND INSTALLATION
+#
+# The easiest and fastest way is this:
+#
+#    curl -sL https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall | bash
+#
+# One advantage of the above method is that no file will be downloaded to the machine you're working on,
+# so you'll make sure that the GitHub version is always the version being run.  If, however, you want to
+# pass arguments to the script before you run it, then you'll want this method:
+#
+#    wget -a /var/log/mysql_db_repair.log -O ./mysqlrepairall https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall && chmod +x ./mysqlrepairall && ./mysqlrepairall
+#
+##
+
+VERSION=2.0.10
 # Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
@@ -64,7 +78,7 @@ mysql_ctrl() {
 			MYSQLCMD='mysqld'
 		fi
 	fi
-	echo -e "\tMySQL Command is '${MYSQLCMD}'. Processing..."
+	echo -e "\tMySQL Command is '${MYSQLCMD}'. Processing..." | tee /dev/fd/3
 	service $MYSQLCMD $1
 }
 
