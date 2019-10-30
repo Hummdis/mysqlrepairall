@@ -8,7 +8,7 @@
 # 4.0 International License. To view a copy of this license,
 # visit http://creativecommons.org/licenses/by-sa/4.0/.
 
-VERSION=2.0.8
+VERSION=2.0.9
 # Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
@@ -200,12 +200,12 @@ run_job() {
 	check_offline
 	
 	# Report completion.
-	echo "\nCHECKS AND REPAIR COMPLETE." | tee /dev/fd/3
+	echo -e "\nCHECKS AND REPAIR COMPLETE." | tee /dev/fd/3
 	echo -e "\e[1mFinish time: $(date +%c)\e[0m" | tee /dev/fd/3
 	echo -e "\nThe full log can be viewed at: $LOG\n" | tee /dev/fd/3
 }
 
-usage(){
+usage() {
 	echo "
 Usage: mysqlrepairall [ OPTIONS ]
 
