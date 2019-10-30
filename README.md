@@ -1,6 +1,6 @@
 # MySQL Repair All
 
-### Version 2.0.8
+### Version 2.0.10
 
 ## What's the point?
 
@@ -13,6 +13,10 @@ This script takes into consideration many different things that could happen.  S
 ## How do I run it?
 
 The easiest and fastest way is this:
+
+    curl -sL https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall | bash
+
+One advantage of the above method is that no file will be downloaded to the machine you're working on, so you'll make sure that the GitHub version is always the version being run.  If, however, you want to pass arguments to the script before you run it, then you'll want this method:
 
     wget -a /var/log/mysql_db_repair.log -O ./mysqlrepairall https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall && chmod +x ./mysqlrepairall && ./mysqlrepairall
 
