@@ -1,6 +1,6 @@
 # MySQL Repair All
 
-### Version 2.0.10
+### Version 2.1.1
 
 ## What's the point?
 
@@ -14,9 +14,13 @@ This script takes into consideration many different things that could happen.  S
 
 The easiest and fastest way is this:
 
-    curl -sL https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall | bash
+    curl -sL https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall | bash -
 
-One advantage of the above method is that no file will be downloaded to the machine you're working on, so you'll make sure that the GitHub version is always the version being run.  If, however, you want to pass arguments to the script before you run it, then you'll want this method:
+Passing arguments:
+
+    curl -sL https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall | bash - [args]
+
+One advantage of the above methods is that no file will be downloaded to the machine you're working on, so you'll make sure that the GitHub version is always the version being run.  If, however, you want to download the file to run it, then you'll want this method:
 
     wget -a /var/log/mysql_db_repair.log -O ./mysqlrepairall https://raw.githubusercontent.com/Hummdis/mysqlrepairall/master/mysqlrepairall && chmod +x ./mysqlrepairall && ./mysqlrepairall
 
@@ -36,6 +40,9 @@ You may also specify options to skip certain tasks:
 	
 	-O	,	--skip-optimize
 		Skip the InnoDB optimization process.  Useful if it seems to hang up some systems.
+	
+	-m	,	--skip-mysql
+		Skip the MySQL test and just run the offline test. Useful for when MySQL is already stopped and the MySQL tests would otherwise fail. This automatically skips the live repair process, so passing the -l or --skip-live is not needed.
 
 	-h	,	--help
 		Display this help text.
