@@ -22,7 +22,7 @@
 #
 ##
 
-VERSION=2.1.0
+VERSION=2.1.1
 # Latest version available at: https://github.com/Hummdis/mysqlrepairall
 
 # Purpose:
@@ -62,25 +62,20 @@ mysql_ctrl() {
 			echo -e "\tMySQL Control -- Status Test for 'mysqld' command." | tee /dev/fd/3
 			service mysqld status
 			if [ $? -ne 0 ]; then
-				# That didn't work. Try again.
-				echo -e "\tMySQL Contol -- Status Test for 'mysql' command." | tee /dev/fd/3
-				service mysql status
-				if [ $? -ne 0 ]; then
-					# Neither command works. Is MySQL installed?
-					echo "Unable to safely stop/start MySQL server." | tee /dev/fd/3
-					echo "Command 'service mysql status' failed." | tee /dev/fd/3
-					echo "Command 'service mysqld status' failed." | tee /dev/fd/3
-					echo "Adding MySQL monitoring back to Chkservd..." | tee /dev/fd/3
-					sed -i 's/mysql:0/mysql:1/g' /etc/chkserv.d/chkservd.conf
-					/scripts/restartsrv chkservd
-					echo -e "\nIs MySQL installed?\n" | tee /dev/fd/3
-					echo "ABORTING." | tee /dev/fd/3
-					exit 1
-				fi		
-				MYSQLCMD='mysql'
-			else
-				MYSQLCMD='mysqld'
-			fi
+				# Neither command works. Is MySQL installed?
+				echo "Unable to safely stop/start MySQL server." | tee /dev/fd/3
+				echo "Command 'service mysql status' failed." | tee /dev/fd/3
+				echo "Command 'service mysqld status' failed." | tee /dev/fd/3
+				echo "Adding MySQL monitoring back to Chkservd..." | tee /dev/fd/3
+				sed -i 's/mysql:0/mysql:1/g' /etc/chkserv.d/chkservd.conf
+				/scripts/restartsrv chkservd
+				echo -e "\nIs MySQL installed?\n" | tee /dev/fd/3
+				echo "ABORTING." | tee /dev/fd/3
+				exit 1
+			fi		
+			MYSQLCMD='mysql'
+		else
+			MYSQLCMD='mysqld'
 		fi
 		echo -e "\tMySQL Command is '${MYSQLCMD}'. Processing..." | tee /dev/fd/3
 		service $MYSQLCMD $1
@@ -134,9 +129,9 @@ run_backup() {
 
 		# After commmunication with Zeb W., it would be best to not dump the SQL to a single file
 		# but to rather dump each database separately.  This would be perferred by DB Admins.
-		mkdir -p $BU_DIR/$TIMESTAMP
-		LIST="${BU_DIR}/${TIMESTAMP}/01_LIST"
-		echo -e "\tBacking up each database individually to ${BU_DIR}/${TIMESTAMP}/" | tee /dev/fd/3
+		mkdir -p /root/dbbackups/$TIMESTAMP
+		LIST="/root/dbbackups/${TIMESTAMP}/01_LIST"
+		echo -e "\tBacking up each database individually to /root/dbbackups/${TIMESTAMP}/" | tee /dev/fd/3
 		echo -e "\tDB Backup list located at ${LIST}" | tee /dev/fd/3
 		touch $LIST
 		for DB in $( mysql -e 'show databases' | grep -v "Database\|information_schema" | awk '{print $1}' ); do
@@ -184,7 +179,8 @@ check_offline() {
 		# Perform a MyISAM check for all MyISAM databases.  This will also optimize the
 		# database by default.
 		echo -e "\tPerforming offline check & repair for all databases (step 1/2)..." | tee /dev/fd/3
-		for i in $(find /var/lib/mysql/ -name '*.MYI'); do
+		for i in $(find /var/lib/mysql/ -name '*.MYI')
+		do
 			myisamchk --extend-check --recover --wait --force --sort-index $i 
 		done
 
@@ -197,9 +193,9 @@ check_offline() {
 			myisamchk --extend-check --recover --wait --force --sort-index $i
 		done
 		echo "All offline checks complete." | tee /dev/fd/3
-
+		
 		if [[ $SKIP_MYSQL = 'true' ]]; then
-			echo "Skipping MySQL check process." | tee /dev/fd/3
+			echo "Skipping MySQL restart process since initial check process skipped." | tee /dev/fd/3
 		else
 			start_mysql
 		fi
