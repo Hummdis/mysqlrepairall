@@ -31,6 +31,9 @@ VERSION=2.1.1
 # myisamchk for offline (MySQL turned off) to repair and optimize the databases
 # that fail the live repair/update.
 
+# Change from 'false' to 'true' to enable auto-updates. Default: false
+AUTO_UPDATE='false'
+
 # Make sure we're running as Root.
 if [ "$EUID" -ne 0 ]
     then echo "Please run as root."
@@ -92,40 +95,71 @@ stop_mysql() {
 	
 	# We're going to tell chkservd to not monitor the MySQL process as well so it's
 	# not restarted during the repair process.
-	echo "Removing MySQL from chkservd monitoring..." | tee /dev/fd/3
+	echo "Removing MySQL/MariaDB from chkservd monitoring..." | tee /dev/fd/3
 	sed -i 's/mysql:1/mysql:0/g' /etc/chkserv.d/chkservd.conf
 	/scripts/restartsrv chkservd
 
-	echo "Stopping MySQL Server. Current time: $(date +%c)" | tee /dev/fd/3
-	mysql_ctrl "stop"
+	echo "Stopping MySQL/MariaDB Server. Current time: $(date +%c)" | tee /dev/fd/3
+	/scripts/restartsrv_mysql --stop
 }
 
 start_mysql() {
-	echo "Restarting MySQL Server..." | tee /dev/fd/3
-	mysql_ctrl "start"
+	echo "Restarting MySQL/MariaDB Server..." | tee /dev/fd/3
+	/scripts/restartsrv_mysql --start
 
 	# Enable Chkservd's monitoring again.
-	echo "Adding MySQL monitoring back to Chkservd..." | tee /dev/fd/3
+	echo "Adding MySQL/MariaDB monitoring back to Chkservd..." | tee /dev/fd/3
 	sed -i 's/mysql:0/mysql:1/g' /etc/chkserv.d/chkservd.conf
 	/scripts/restartsrv chkservd
 }
 
+check_backup_dir() {
+	# Make sure the backup directory exists, if not, create it.
+	# Abort if it's not a directory.
+	if [[ ! -e $BU_DIR ]]; then
+		mkdir $BU_DIR
+	elif [[ ! -d $BU_DIR ]]; then
+		echo -e "\e[31mRed$BU_DIR already exists but is not a directory.\e[39mDefault" | tee /dev/fd/3
+		echo "ABORTING." | tee /dev/fd/3
+		exit 1
+	fi
+}
+
+rotate_logs() {
+	# Since the logs can be quite large, especially for servers with a lot of databases, rotate the logs with
+	# each run. Delete any older than 7 days.
+	if [[ -e $LOG ]]; then
+		gzip -S "_${TIMESTAMP}.gz" $LOG
+	fi
+	
+	# Keep only the 7 newest files.
+	ls -1t ${BU_DIR}/${LOG}*.gz 2>&1 | (i=0; while read f; do
+		if [ $i -lt 7 ]; then
+			((i++))
+			continue
+		else
+			rm -f "$f"
+		fi
+	done)
+}
+
 run_backup() {
 	if [[ $SKIP_BACKUP = 'true' ]]; then
-		echo "Skipping backup process." | tee /dev/fd/3
+		echo "Skipping MySQL/MariaDB backup process." | tee /dev/fd/3
+	elif [[ $SKIP_MYSQL = 'true' ]]; then
+		check_backup_dir
+		
+		# Backup the whole folder to a file.
+		echo "Running MySQL/MariaDB backup of whole database folder to ${BU_DIR}/${TIMESTAMP}/..." | tee /dev/fd/3
+		
+		# MySQL is assumed to be not running. Just backup the /var/lib/mysql/ directory.
+		mkdir -p ${BU_DIR}/${TIMESTAMP}
+		tar -czvf ${BU_DIR}/${TIMESTAMP}/mysql_dir_${TIMESTAMP}.tar.gz /var/lib/mysql/
 	else
-		# Backup all databases to a single .sql file.
-		echo "Backing up all databases..." | tee /dev/fd/3
+		check_backup_dir
 
-		# Make sure the backup directory exists, if not, create it.
-		# Abort if it's not a directory.
-		if [[ ! -e $BU_DIR ]]; then
-			mkdir $BU_DIR
-		elif [[ ! -d $BU_DIR ]]; then
-			echo -e "\e[31mRed$BU_DIR already exists but is not a directory.\e[39mDefault" | tee /dev/fd/3
-			echo "ABORTING." | tee /dev/fd/3
-			exit 1
-		fi
+		# Backup all databases to a single .sql file.
+		echo "Running MySQL/MariaDB Backup of all databases..." | tee /dev/fd/3
 
 		# After commmunication with Zeb W., it would be best to not dump the SQL to a single file
 		# but to rather dump each database separately.  This would be perferred by DB Admins.
@@ -138,12 +172,13 @@ run_backup() {
 			mysqldump --add-drop-table $DB > $BU_DIR/$TIMESTAMP/$DB.sql && echo $DB >> $LIST
 		done
 		echo "Individual database backup process complete." | tee /dev/fd/3
+		
 	fi
 }
 
 check_live() {
 	if [[ $SKIP_LIVE = 'true' ]]; then
-		echo "Skipping Live MySQL repair process." | tee /dev/fd/3
+		echo "Skipping Live MySQL/MariaDB repair process." | tee /dev/fd/3
 	else
 		# Perform MySQL check. This is a simple check on the databases and can be run with
 		# MySQL running.
@@ -153,7 +188,7 @@ check_live() {
 
 		# This seems to hang on some systems. Allow this to be skipped.
 		if [[ $SKIP_OPTIMIZE = 'true' ]]; then
-			echo -e "\tSkipping live MySQL optimization process." | tee /dev/fd/3
+			echo -e "\tSkipping live MySQL/MariaDB optimization process." | tee /dev/fd/3
 		else
 			echo -e "\tPerforming live optimization of all databases..." | tee /dev/fd/3
 			mysqlcheck --optimize --all-databases
@@ -163,7 +198,7 @@ check_live() {
 
 check_offline() {
 	if [[ $SKIP_OFFLINE = 'true' ]]; then
-		echo "Skipping Offline MySQL repair process." | tee /dev/fd/3
+		echo "Skipping Offline MySQL/MariaDB repair process." | tee /dev/fd/3
 	else
 		# Perform a MyISAM check on the tables and repair any issues found.
 		# The mysqld server must be stopped.  This is to prevent database
@@ -202,10 +237,46 @@ check_offline() {
 	fi
 }
 
+update_check() {
+	# This will return the following numbers for the two arguments passed.
+    # 0 if $1 = $2
+    # 1 if $1 > $2
+    # 2 if $1 < $2
+
+    if [[ $1 == $2 ]]; then
+        return 0
+    fi
+
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # Fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do
+        ver1[i]=0
+    done
+
+    for ((i=0; i<${#ver1[@]}; i++)); do
+        if [[ -z ${ver2[i]} ]]; then
+            # Fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+
+        if ((10#${ver1[i]} > 10#${ver2[i]})); then
+            return 1
+        fi
+
+        if ((10#${ver1[i]} < 10#${ver2[i]})); then
+            return 2
+        fi
+    done
+
+    return 0
+}
+
 run_job() {
 	# We're going to make sure everything is logged.
 	# To print statements to the user, which will also go to STDOUT and STDERR,
 	# pipe output to "tee /dev/fd/3". Otherwise, it only goes the log.
+	rotate_logs
 	exec 3>&1 1>>${LOG} 2>&1
 
 	echo -e "\n\nMySQL Repair All v${VERSION}\n\n" | tee /dev/fd/3
