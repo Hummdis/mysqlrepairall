@@ -2,11 +2,6 @@
 
 ### Version 2.2.0
 
-## What's the point?
-=======
-
-### Version 2.2.0
-
 ## Why such a large script?
 
 This script takes into consideration many different things that could happen.  Since the intent of this script is to be run in a screen, it provides minimal output to the TTY, but logs all other activity in `/var/log/mysql_db_repair.log`.    The goal is to be as hands-off as possible to ensure that the process can just run.  Therefore, arguments can be passed to it to make it customizable to a particular need.
