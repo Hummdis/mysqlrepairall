@@ -2,11 +2,6 @@
 
 ### Version 2.2.0
 
-## Why such a large script?
-
-This script takes into consideration many different things that could happen.  Since the intent of this script is to be run in a screen, it provides minimal output to the TTY, but logs all other activity in `/var/log/mysql_db_repair.log`.    The goal is to be as hands-off as possible to ensure that the process can just run.  Therefore, arguments can be passed to it to make it customizable to a particular need.
-
-=======
 ## What's the point?
 
 The point of this script is to allow a consistent and safe way for MySQL/MariaDB databases to be backed up and repaired on servers running either MySQL or MariaDB.  While there are many different ways to do this, the main goal is consistency in the process.
